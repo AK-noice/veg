@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>GAS 心理測驗 - 計次邏輯</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 20px auto; padding: 20px; border: 1px solid #ccc; }
+        .question-block { border: 1px solid #eee; padding: 15px; margin-bottom: 20px; background-color: #f9f9f9; }
+        .question-title { font-weight: bold; margin-bottom: 10px; }
+        .option-label { margin-right: 20px; cursor: pointer; }
+        .result-box { margin-top: 30px; padding: 15px; border: 2px solid #28a745; display: none; }
+    </style>
+</head>
+<body>
+
+    <h2>簡易人格傾向測試</h2>
+    <hr>
+    
+    <div id="test-form">
+        <div class="question-block">
+            <label for="name">您的姓名：</label>
+            <input type="text" id="name" required style="width: 200px;">
+        </div>
+
+        <div class="question-block" data-q="q1">
+            <div class="question-title">Q1. 當面對挑戰時，您傾向於：</div>
+            <label class="option-label"><input type="radio" name="q1" value="a" required> a) 立即行動，嘗試各種可能，越快越好。</label><br>
+            <label class="option-label"><input type="radio" name="q1" value="b"> b) 仔細分析利弊，制定詳細計畫後再執行。</label><br>
+            <label class="option-label"><input type="radio" name="q1" value="c"> c) 尋求團隊意見，確保每個人都感到舒適。</label>
+        </div>
+        
+        <div class="question-block" data-q="q2">
+            <div class="question-title">Q2. 在社交場合中，您通常是：</div>
+            <label class="option-label"><input type="radio" name="q2" value="a" required> a) 健談，主動結識新朋友，是焦點人物。</label><br>
+            <label class="option-label"><input type="radio" name="q2" value="b"> b) 喜歡觀察，只與少數知心朋友深入交流。</label><br>
+            <label class="option-label"><input type="radio" name="q2" value="c"> c) 樂於助人，確保氣氛和諧，避免衝突。</label>
+        </div>
+
+        <div class="question-block" data-q="q3">
+            <div class="question-title">Q3. 您如何處理突然的變化或意外？</div>
+            <label class="option-label"><input type="radio" name="q3" value="a" required> a) 感到興奮，將其視為打破常規的機會。</label><br>
+            <label class="option-label"><input type="radio" name="q3" value="b"> b) 保持冷靜，專注於找到最有效率的解決方案。</label><br>
+            <label class="option-label"><input type="radio" name="q3" value="c"> c) 優先考慮變化對他人的影響，盡力提供支持。</label>
+        </div>
+
+        <button id="submit-btn">完成測驗並查看人格</button>
+        <p id="message" style="color: red; margin-top: 10px;"></p>
+    </div>
+
+    <div id="results" class="result-box">
+        <h3>測驗結果 - <span id="result-name"></span></h3>
+        <p>您的分析結果是：**<span id="result-type" style="font-size: 1.2em; color: #d9534f;"></span>**</p>
+        <p id="result-text"></p>
+        <p style="margin-top: 10px; font-size: 0.9em; color: #666;">(A型次數: <span id="count-a"></span>, B型次數: <span id="count-b"></span>, C型次數: <span id="count-c"></span>)</p>
+    </div>
+
+    <script>
+        // *** 將 YOUR_GAS_WEB_APP_URL_HERE 替換為您實際的 GAS URL！ ***
+        const GAS_URL = "YOUR_GAS_WEB_APP_URL_HERE"; 
+
+        $(document).ready(function() {
+            
+            $('#submit-btn').click(function() {
+                
+                const name = $('#name').val().trim();
+                if (!name) {
+                    $('#message').text('請輸入您的姓名。');
+                    return;
+                }
+
+                // 1. 收集所有答案
+                const answers = [];
+                let allAnswered = true;
+
+                // 遍歷所有以 'q' 開頭的單選按鈕組
+                // 找到被選中的選項值
+                $('[name^="q"]').each(function() {
+                    const questionName = $(this).attr('name');
+                    const selectedValue = $(`input[name="${questionName}"]:checked`).val();
+                    
+                    // 檢查是否每個問題都有選
+                    if (!selectedValue && allAnswered) {
+                        allAnswered = false;
+                        return false; // 跳出 each 迴圈
+                    }
+                    if (selectedValue) {
+                        answers.push(selectedValue);
+                    }
+                });
+
+                if (!allAnswered || answers.length < 3) {
+                    $('#message').text('請完成所有問題的選擇！');
+                    return;
+                }
+                
+                $('#message').text(''); // 清除錯誤訊息
+
+                // 2. 組織要發送的數據
+                const postData = {
+                    userName: name,
+                    answers: answers // 將陣列發送到 GAS
+                };
+
+                // 禁用按鈕防止重複提交
+                $('#submit-btn').prop('disabled', true).text('正在計算中...');
+
+                // 3. 使用 jQuery AJAX 發送 POST 請求
+                $.ajax({
+                    url: GAS_URL,
+                    type: 'POST',
+                    data: JSON.stringify(postData),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        
+                        if (response.status === 'success') {
+                            // 4. 顯示結果
+                            $('#result-name').text(response.userName);
+                            $('#result-type').text(response.resultType);
+                            $('#result-text').text(response.resultMessage);
+                            
+                            // 顯示計數細節
+                            $('#count-a').text(response.typeA);
+                            $('#count-b').text(response.typeB);
+                            $('#count-c').text(response.typeC);
+                            
+                            // 隱藏表單，顯示結果框
+                            $('#test-form').hide();
+                            $('#results').fadeIn();
+
+                        } else {
+                            $('#message').text('計算錯誤，' + response.message);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("AJAX Error:", error);
+                        $('#message').text('網路連線失敗，請檢查網路。');
+                    },
+                    complete: function() {
+                        if ($('#test-form').is(':visible')) {
+                             $('#submit-btn').prop('disabled', false).text('完成測驗並查看人格');
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
